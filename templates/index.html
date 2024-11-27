@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse Traffic</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Analyse Traffic</h1>
+    <form action="/run" method="post">
+        <label>Time:</label>
+        <input type="text" name="time" value="2024/11/27.00:00:00"><br>
+        <label>Top:</label>
+        <input type="number" name="top" placeholder="e.g., 100"><br>
+        <label>Filter:</label>
+        <input type="text" name="filter" placeholder="e.g., srcip, dstip"><br>
+        <label>Router:</label>
+        <input type="text" name="router_ip" placeholder="e.g., 10.1.1.1"><br>
+        <label>Format:</label>
+        <input type="text" name="format" placeholder="e.g., csv"><br>
+        <button type="submit">Run</button>
+    </form>
+</body>
+</html>

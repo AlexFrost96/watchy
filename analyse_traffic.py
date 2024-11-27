@@ -17,12 +17,13 @@ parser = argparse.ArgumentParser(description="Parsing arguments for nfdump")
 parser.add_argument("--top", type=int, default=100, help="Show top N conversation (default: 10)")
 parser.add_argument("--filter", type=str, default=None, help="Filter nfdump (default: all packets)")
 parser.add_argument("--time", type=str, default=None, help="Time interval for nfdump (Default: traffic for ALL time)")
+parser.add_argument("--router", type=str, default=None, help="Router - where we should parsing traffic (Default: all routers)")
 parser.add_argument("--format", type=str, default=None, help="Format for output (Default: csv)")
 args = parser.parse_args()
 
-def execute_nfdump(top, time, filter_param, output_format):
+def execute_nfdump(top, time, router, filter_param, output_format):
     # Construct the nfdump command
-    cmd = f"nfdump -R /var/log/netflow -s record/bytes -n {top}"
+    cmd = f"nfdump -R /var/log/netflow/{router} -s record/bytes -n {top}"
     if time:
         cmd += f" -t {time}"
     if filter_param:
@@ -130,7 +131,7 @@ def wrap_text(text, width=12):
 # Основний блок
 if __name__ == "__main__":
     # Call the nfdump function with parsed arguments
-    execute_nfdump(args.top, args.time, args.filter, args.format)
+    execute_nfdump(args.top, args.time, args.router, args.filter, args.format)
     # Шлях до CSV файлу
     CSV_FILE_PATH = "data.csv"
 
