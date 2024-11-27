@@ -4,7 +4,7 @@ import ipaddress
 import csv
 from tabulate import tabulate
 import textwrap
-import os
+import subprocess
 import argparse
 
 # Шляхи до MaxMind баз даних
@@ -19,25 +19,31 @@ parser.add_argument("--filter", type=str, default=None, help="Filter nfdump (def
 parser.add_argument("--time", type=str, default=None, help="Time interval for nfdump (Default: traffic for ALL time)")
 parser.add_argument("--format", type=str, default=None, help="Format for output (Default: csv)")
 args = parser.parse_args()
-nfdump_top_N = args.top
-nfdump_filter = args.filter
-nfdump_time = args.time
-nfdump_format = args.format
-cmd = f"./get_nfdump.sh {nfdump_top_N}"
-if nfdump_time:
-    cmd += f" '{nfdump_time}'"
-else:
-    cmd += " false"
-if nfdump_filter:
-    cmd += f" '{nfdump_filter}'"
-else:
-    cmd += " false"
-if nfdump_format:
-    cmd += f" {nfdump_format}" 
-else:
-    cmd += " false"
-print(f"Executing command: {cmd}")
-os.system(cmd)
+
+def execute_nfdump(top, time, filter_param, output_format):
+    # Construct the nfdump command
+    cmd = f"nfdump -R /var/log/netflow -s record/bytes -n {top}"
+    if time:
+        cmd += f" -t {time}"
+    if filter_param:
+        cmd += f" '{filter_param}'"
+    if output_format == "e":  # Extended format
+        cmd += " -o extended"
+    else:  # Default to CSV format with aggregation
+        cmd += " -A srcip,dstip -o csv"
+        if output_format != "e":  # Output to CSV file only if not 'extended'
+            cmd += " > data.csv"
+
+    print(f"Executing command: {cmd}")
+    try:
+        # Execute the command and capture output
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True)
+        output = result.stdout if output_format == "e" else "Output saved to data.csv"
+        print(output)
+        return output
+    except subprocess.CalledProcessError as e:
+        print(f"Error executing command: {e.stderr}")
+        return f"Error: {e.stderr}"
 
 # Функція для парсингу IP-адрес та трафіку із CSV
 def parse_ips_and_traffic(csv_file):
@@ -123,6 +129,8 @@ def wrap_text(text, width=12):
 
 # Основний блок
 if __name__ == "__main__":
+    # Call the nfdump function with parsed arguments
+    execute_nfdump(args.top, args.time, args.filter, args.format)
     # Шлях до CSV файлу
     CSV_FILE_PATH = "data.csv"
 

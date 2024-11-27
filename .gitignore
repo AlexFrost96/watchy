@@ -2,3 +2,4 @@
 *.mmdb
 *.txt
 nfcapd_csv.sh
+*__pycache__/
