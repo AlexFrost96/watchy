@@ -32,7 +32,12 @@
 
         <div class="form-group">
             <label for="router_ip">Router:</label>
-            <input type="text" id="router_ip" name="router_ip" placeholder="e.g., 10.1.1.1">
+            <select id="router_ip" name="router_ip" multiple>
+                {% for device in devices %}
+                    <option value="{{ device }}">{{ device }}</option>
+                {% endfor %}
+            </select>
+            <p style="font-size: 0.9em; color: gray;">Hold down the Ctrl (Windows) or Command (Mac) button to select multiple options.</p>
         </div>
 
         <div class="form-group">

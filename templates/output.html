@@ -9,6 +9,9 @@
 <body>
     <div class="container">
         <a href="/">Return to Home</a>
+        <a href="{{ url_for('download_file') }}" class="download-link" download>
+            Download Updated Data (CSV)
+        </a>
         <h1>Command Output</h1>
         <div class="table-container">
             {{ table|safe }}

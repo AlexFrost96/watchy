@@ -10,6 +10,7 @@ import argparse
 # Шляхи до MaxMind баз даних
 GEO_DB_PATH_COUNTRY = "GeoLite2-Country.mmdb"
 GEO_DB_PATH_ASN = "GeoLite2-ASN.mmdb"
+NETFLOW_BASE_DIR = "/var/log/netflow/"
 # Мережа для "Home"
 HOME_NETWORK = ipaddress.IPv4Network("192.168.50.0/24")
 # Додаємо аргументи
@@ -17,13 +18,29 @@ parser = argparse.ArgumentParser(description="Parsing arguments for nfdump")
 parser.add_argument("--top", type=int, default=100, help="Show top N conversation (default: 10)")
 parser.add_argument("--filter", type=str, default=None, help="Filter nfdump (default: all packets)")
 parser.add_argument("--time", type=str, default=None, help="Time interval for nfdump (Default: traffic for ALL time)")
-parser.add_argument("--router", type=str, default='', help="Router - where we should parsing traffic (Default: all routers)")
+parser.add_argument("--routers", type=str, default=None, help="Routers - where we should parsing traffic (Default: all routers)")
 parser.add_argument("--format", type=str, default=None, help="Format for output (Default: csv)")
 args = parser.parse_args()
 
-def execute_nfdump(top, time, router, filter_param, output_format):
+def execute_nfdump(top, time, routers, filter_param, output_format):
     # Construct the nfdump command
-    cmd = f"nfdump -R /var/log/netflow/{router} -s record/bytes -n {top}"
+    cmd = "nfdump {} -s record/bytes -n {}"
+    routers_dir = ""
+    if routers:
+        if len(routers.split(',')) > 1:
+            last_ip = routers.split(',')[-1]
+            for ip in routers.split(','):
+                if not routers_dir:
+                    routers_dir = routers_dir + f"-M {NETFLOW_BASE_DIR}{ip}"
+                elif ip == last_ip:
+                    routers_dir = routers_dir + f":{NETFLOW_BASE_DIR}{ip} -R ."
+                else:
+                    routers_dir = routers_dir + f":{NETFLOW_BASE_DIR}{ip}"
+        else:
+            routers_dir = f"-R {NETFLOW_BASE_DIR}{routers}"
+        cmd = cmd.format(routers_dir, top)
+    else:
+       cmd = cmd.format(f"-R {NETFLOW_BASE_DIR}", top)
     if time:
         cmd += f" -t {time}"
     if filter_param:
@@ -131,7 +148,7 @@ def wrap_text(text, width=12):
 # Основний блок
 if __name__ == "__main__":
     # Call the nfdump function with parsed arguments
-    execute_nfdump(args.top, args.time, args.router, args.filter, args.format)
+    execute_nfdump(args.top, args.time, args.routers, args.filter, args.format)
     # Шлях до CSV файлу
     CSV_FILE_PATH = "data.csv"
 
@@ -184,9 +201,9 @@ if __name__ == "__main__":
                 locations['dst_asn'],
                 locations['dst_asn_desc'],
                 locations['dst_country'],
-                locations['bytes'],  # Зберігаємо байти
+                f"{locations['bytes'] / 1000000} MB",
                 locations['packets'],
-                time_data[idx]  # Додаємо час
+                time_data[idx]
             ])
 
     print("Updated CSV saved to: updated_data.csv")
