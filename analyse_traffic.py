@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(description="Parsing arguments for nfdump")
 parser.add_argument("--top", type=int, default=100, help="Show top N conversation (default: 10)")
 parser.add_argument("--filter", type=str, default=None, help="Filter nfdump (default: all packets)")
 parser.add_argument("--time", type=str, default=None, help="Time interval for nfdump (Default: traffic for ALL time)")
-parser.add_argument("--router", type=str, default=None, help="Router - where we should parsing traffic (Default: all routers)")
+parser.add_argument("--router", type=str, default='', help="Router - where we should parsing traffic (Default: all routers)")
 parser.add_argument("--format", type=str, default=None, help="Format for output (Default: csv)")
 args = parser.parse_args()
 
@@ -167,7 +167,7 @@ if __name__ == "__main__":
         ])
 
     # Виведення таблиці
-    headers = ["Src IP", "src_ASN", "src_ASN Desc", "src_Country", "Dst IP", "dst_ASN", "dst_ASN Desc", "dst_Country", "Mbits", "Packets", "Time"]
+    headers = ["Src IP", "src_ASN", "src_ASN Desc", "src_Country", "Dst IP", "dst_ASN", "dst_ASN Desc", "dst_Country", "MBytes", "Packets", "Time"]
     print(tabulate(table_data, headers=headers, tablefmt="grid"))
 
     # Збереження в оновлений CSV файл

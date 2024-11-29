@@ -7,18 +7,39 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <h1>Analyse Traffic</h1>
     <form action="/run" method="post">
-        <label>Time:</label>
-        <input type="text" name="time" value="2024/11/27.00:00:00"><br>
-        <label>Top:</label>
-        <input type="number" name="top" placeholder="e.g., 100"><br>
-        <label>Filter:</label>
-        <input type="text" name="filter" placeholder="e.g., srcip, dstip"><br>
-        <label>Router:</label>
-        <input type="text" name="router_ip" placeholder="e.g., 10.1.1.1"><br>
-        <label>Format:</label>
-        <input type="text" name="format" placeholder="e.g., csv"><br>
+        <h1>Analyse Traffic</h1>
+
+        <div class="form-group">
+            <label for="start_time">Start Time:</label>
+            <input type="text" id="start_time" name="start_time" value="{{ start_date }}">
+        </div>
+
+        <div class="form-group">
+            <label for="end_time">End Time:</label>
+            <input type="text" id="end_time" name="end_time" value="{{ end_time }}">
+        </div>
+
+        <div class="form-group">
+            <label for="top">Top:</label>
+            <input type="number" id="top" name="top" placeholder="e.g., 100">
+        </div>
+
+        <div class="form-group">
+            <label for="filter">Filter:</label>
+            <input type="text" id="filter" name="filter" placeholder="e.g., srcip, dstip">
+        </div>
+
+        <div class="form-group">
+            <label for="router_ip">Router:</label>
+            <input type="text" id="router_ip" name="router_ip" placeholder="e.g., 10.1.1.1">
+        </div>
+
+        <div class="form-group">
+            <label for="format">Format:</label>
+            <input type="text" id="format" name="format" placeholder="e.g., csv">
+        </div>
+
         <button type="submit">Run</button>
     </form>
 </body>

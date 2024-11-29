@@ -2,24 +2,30 @@ from flask import Flask, request, render_template
 import subprocess
 import os
 import pandas as pd
+from datetime import datetime
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).strftime('%Y/%m/%d.%H:%M:%S')
+    now = datetime.now().strftime('%Y/%m/%d.%H:%M:%S')
+    return render_template('index.html', start_date=today_midnight, end_time=now)
 
 @app.route('/run', methods=['POST'])
 def run_script():
-    time = request.form.get('time', '')
+    start_time = request.form.get('start_time', '')
+    end_time = request.form.get('end_time', '')
     top = request.form.get('top', '')
     filter_param = request.form.get('filter', '')
     output_format = request.form.get('format', '')
     router_ip = request.form.get('router_ip', '')
 
     command = f'./analyse_traffic.py'
-    if time:
-        command += f' --time {time}'
+    if start_time and end_time:
+        command += f' --time {start_time}-{end_time}'
+    elif start_time:
+        command += f' --time {start_time}'
     if top:
         command += f' --top {top}'
     if router_ip:
