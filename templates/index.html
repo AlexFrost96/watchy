@@ -39,11 +39,23 @@
             </select>
             <p style="font-size: 0.9em; color: gray;">Hold down the Ctrl (Windows) or Command (Mac) button to select multiple options.</p>
         </div>
-
         <div class="form-group">
             <label for="format">Format:</label>
             <input type="text" id="format" name="format" placeholder="e.g., csv">
         </div>
+        <!-- <div class="form-group">
+            <label for="format">Format:</label>
+            <select id="format" name="format">
+                <option value="raw">raw: Raw record dump</option>
+                <option value="line">line: Standard output line format</option>
+                <option value="long">long: Standard output line format with additional fields</option>
+                <option value="extended">extened: Even more information</option>
+                <option value="csv" selected>csv: (comma-separated, machine-readable)</option>
+                <option value="json">json: output format</option>
+                <option value="ndjson">ndjson: (one JSON object per line)</option>
+                <option value="null">null: No flow records, only statistics output</option>
+            </select>
+        </div> -->
 
         <button type="submit">Run</button>
     </form>
