@@ -53,7 +53,7 @@ def run_script():
         output = result.stdout
 
         if output_format == "csv":
-            csv_path = 'data.csv'
+            csv_path = 'updated_data.csv'
             if os.path.exists(csv_path):
                 df = pd.read_csv(csv_path)
                 html_table = df.to_html(classes="table table-striped", index=False)
