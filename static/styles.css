@@ -3,52 +3,100 @@ body {
     margin: 0;
     padding: 0;
     background-color: #f7f9fc;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    /* min-height: 100vh; */
-}
-body, html {
-    margin: 0; /* Прибираємо зовнішні відступи браузера */
-    padding: 0;
-    box-sizing: border-box; /* Глобально враховує padding у ширині */
 }
 
-h1 {
-    text-align: center;
-    color: #333;
-    margin-bottom: 20px;
-    font-size: 2rem;
+.container {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 1300px;
+    margin: 20px auto;
+    gap: 20px;
+    align-items: flex-start;
 }
 
-form {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+.left-panel {
+    flex: 0 1 calc(70% - 10px);
     background-color: #ffffff;
-    padding: 30px;
+    padding: 20px;
     border-radius: 10px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    max-width: 500px;
-    width: 100%;
+    box-sizing: border-box;
 }
 
-form label {
+.right-panel {
+    flex: 0 1 calc(30% - 10px);
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+    .left-panel,
+    .right-panel {
+        flex: 1 1 100%;
+    }
+}
+
+.graph-container {
+    max-width: 100%;
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+.inline-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.inline-form .form-group {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+}
+
+.inline-form input {
     width: 100%;
-    margin-bottom: 5px;
-    font-weight: bold;
-    font-size: 1rem;
-    color: #555;
+    max-width: 200px;
+    padding: 8px;
+    font-size: 0.9rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.update-button {
+    flex: 0 1 auto;
+    max-width: 100px;
+    padding: 8px 15px;
+    font-size: 0.9rem;
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.update-button:hover {
+    background-color: #0056b3;
+    transform: translateY(-2px);
+}
+
+.update-button:active {
+    background-color: #004494;
+    transform: translateY(0);
 }
 
 .form-group {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
     margin-bottom: 15px;
 }
 
-form input {
+input,
+select,
+button {
     width: 100%;
     padding: 10px;
     border: 1px solid #ccc;
@@ -58,23 +106,17 @@ form input {
     transition: border-color 0.3s;
 }
 
-form input:focus {
+input:focus,
+select:focus,
+button:focus {
     border-color: #007BFF;
     outline: none;
     box-shadow: 0 0 4px rgba(0, 123, 255, 0.5);
 }
 
 button {
-    width: 100%;
-    padding: 10px;
-    background-color: #007BFF;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    font-size: 1rem;
     cursor: pointer;
     transition: background-color 0.3s, transform 0.2s;
-    margin-top: 10px;
 }
 
 button:hover {
@@ -87,51 +129,30 @@ button:active {
     transform: translateY(0);
 }
 
-.table-container {
+/* .output-container {
+    width: 100%;
     margin-top: 20px;
-    width: 100%; /* Контейнер заповнює всю доступну ширину */
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    padding: 10px;
-    background-color: #ffffff;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    box-sizing: border-box; /* Враховує padding і border */
-    overflow: hidden; /* Вимикає прокручування */
-}
-
-table {
-    width: 100%; /* Таблиця розтягується до ширини контейнера */
-    border-collapse: collapse; /* Прибирає зайві пробіли між комірками */
-}
-
-table th, table td {
-    padding: 10px;
-    text-align: left;
+    padding: 20px;
+    background-color: #f9f9f9;
     border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: none; /* Приховуємо за замовчуванням */
+} */
+
+.output-container.active {
+    display: block; /* Показуємо, коли клас active */
 }
 
-table th {
-    background-color: #f4f4f4;
+.loading-indicator {
+    display: none;
+    text-align: center;
+    margin-top: 10px;
+    font-size: 1.1rem;
+    color: #007BFF;
     font-weight: bold;
 }
 
-.container {
-    margin: auto;
-    padding: 20px;
-    background-color: #f7f9fc;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-a {
+.loading-indicator.active {
     display: block;
-    margin-bottom: 20px;
-    color: #007BFF;
-    text-decoration: none;
-    font-size: 1rem;
-    text-align: center;
-}
-
-a:hover {
-    text-decoration: underline;
 }
