@@ -56,75 +56,90 @@
                                     {% for device in devices %}
                                         <option value="{{ device }}">{{ device }}</option>
                                     {% endfor %}
-                                    </select>
-                                    <small class="text-muted">Hold down Ctrl (Windows) or Command (Mac) to select multiple options.</small>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="format" class="form-label">Format:</label>
-                                    <select id="format" name="format" class="form-select">
-                                        <option value="raw">Raw record dump</option>
-                                        <option value="line" selected>Standard output line format</option>
-                                        <option value="long">Long output format</option>
-                                        <option value="extended">Extended output</option>
-                                        <option value="csv">CSV (comma-separated)</option>
-                                        <option value="json">JSON format</option>
-                                        <option value="ndjson">NDJSON</option>
-                                        <option value="null">No flow records</option>
-                                    </select>
-                                </div>
-                                <!-- Hidden fields for start_time and end_time -->
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <button type="submit" class="btn btn-success w-100">Run</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-    
-            <!-- Output Section -->
-            <div id="output-section" class="mt-4 d-none">
-                <div class="card">
-                    <div class="card-body">
-                        <h2 class="card-title">Output</h2>
-                        <div id="output">
-                            <!-- Output will load here -->
-                        </div>
-                        <div id="loading-indicator" class="text-center mt-3">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
+                                </select>
+                                <small class="text-muted">Hold down Ctrl (Windows) or Command (Mac) to select multiple options.</small>
                             </div>
-                            <p>Processing... Please wait.</p>
-                        </div>
+                            <div class="mb-3">
+                                <label for="format" class="form-label">Format:</label>
+                                <select id="format" name="format" class="form-select">
+                                    <option value="raw">Raw record dump</option>
+                                    <option value="line" selected>Standard output line format</option>
+                                    <option value="long">Long output format</option>
+                                    <option value="extended">Extended output</option>
+                                    <option value="csv">CSV (comma-separated)</option>
+                                    <option value="json">JSON format</option>
+                                    <option value="ndjson">NDJSON</option>
+                                    <option value="null">No flow records</option>
+                                </select>
+                            </div>
+                            <!-- Hidden fields for start_time and end_time -->
+                            <input type="hidden" id="hidden_start_time" name="start_time" value="{{ start_time }}">
+                            <input type="hidden" id="hidden_end_time" name="end_time" value="{{ end_time }}">
+                            <button type="submit" class="btn btn-success w-100">Run</button>
+                        </form>
                     </div>
                 </div>
             </div>
         </div>
-    
-        <script>
-            document.querySelector('form[action="/run"]').addEventListener('submit', function (event) {
-                event.preventDefault();
-                const form = event.target;
-    
-                // Show loading indicator
-                document.getElementById('loading-indicator').style.display = 'block';
-                document.getElementById('output-section').classList.remove('d-none');
-    
-                const formData = new FormData(form);
-                fetch('/run', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.text())
-                .then(data => {
-                    document.getElementById('loading-indicator').style.display = 'none';
-                    document.getElementById('output').innerHTML = data;
-                })
-                .catch(error => {
-                    document.getElementById('loading-indicator').style.display = 'none';
-                    document.getElementById('output').innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
-                });
+
+        <!-- Output Section -->
+        <div id="output-section" class="mt-4 d-none">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Output</h2>
+                    <div id="output">
+                        <!-- Output will load here -->
+                    </div>
+                    <div id="loading-indicator" class="text-center mt-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p>Processing... Please wait.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Synchronize start_time and end_time between forms
+        const startTimeInput = document.getElementById('start_time');
+        const endTimeInput = document.getElementById('end_time');
+        const hiddenStartTimeInput = document.getElementById('hidden_start_time');
+        const hiddenEndTimeInput = document.getElementById('hidden_end_time');
+
+        startTimeInput.addEventListener('input', () => {
+            hiddenStartTimeInput.value = startTimeInput.value;
+        });
+
+        endTimeInput.addEventListener('input', () => {
+            hiddenEndTimeInput.value = endTimeInput.value;
+        });
+
+        // Run button functionality
+        document.querySelector('form[action="/run"]').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const form = event.target;
+
+            // Show loading indicator
+            document.getElementById('loading-indicator').style.display = 'block';
+            document.getElementById('output-section').classList.remove('d-none');
+
+            const formData = new FormData(form);
+            fetch('/run', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('loading-indicator').style.display = 'none';
+                document.getElementById('output').innerHTML = data;
+            })
+            .catch(error => {
+                document.getElementById('loading-indicator').style.display = 'none';
+                document.getElementById('output').innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
             });
-        </script>
-    </body>
-    </html>
+        });
+    </script>
+</body>
+</html>
