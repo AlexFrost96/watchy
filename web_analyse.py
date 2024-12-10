@@ -4,6 +4,7 @@ import os
 import pandas as pd
 from datetime import datetime, timedelta
 from flask import send_file
+from analyse_traffic import execute_nfdump, process_traffic
 import plotly.graph_objects as go
 
 app = Flask(__name__)
@@ -118,44 +119,35 @@ def run_script():
         end_time_obj = datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
         end_time = end_time_obj.strftime('%Y/%m/%d.%H:%M:%S')
     top = request.form.get('top', '')
+    if not top.strip():  # Check if top is empty or just whitespace
+        top = 100
+    else:
+        top = int(top)  # Convert to an integer if provided
     filter_param = request.form.get('filter', '')
     output_format = request.form.get('format', '')
     router_ips = ','.join(request.form.getlist('router_ip'))
 
-    command = f'./analyse_traffic.py'
     if start_time and end_time:
-        command += f' --time {start_time}-{end_time}'
+        time = f'{start_time}-{end_time}'
     elif start_time:
-        command += f' --time {start_time}'
-    if top:
-        command += f' --top {top}'
-    if router_ips:
-        command += f" --routers '{router_ips}'"
-    if filter_param:
-        command += f" --filter '{filter_param}'"
-    if output_format:
-        command += f' --format {output_format}'
-
+        time = start_time
     try:
-        print(f"Executing command: {command}")
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
-        output = result.stdout
-
-        if output_format == "csv":
-            csv_path = 'updated_data.csv'
-            if os.path.exists(csv_path):
-                df = pd.read_csv(csv_path)
-                html_table = df.to_html(classes="table table-striped", index=False)
+        output_csv_path = "updated_data.csv"
+        output, cmd = execute_nfdump(top, time, router_ips, filter_param, output_format)
+        if process_traffic():
+            if output_format == "csv" and os.path.exists(output_csv_path):
+                df = pd.read_csv(output_csv_path)
+                html_table = df.to_html(classes="table table-hover", border=0, index=False)
             else:
-                html_table = "<p>Error: CSV file not found.</p>"
+                html_table = f"<pre>{output}</pre>"
         else:
-            html_table = f"<pre>{output}</pre>"
+            html_table = "<p>No traffic data found for the specified range.</p>"
 
-    except subprocess.CalledProcessError as e:
-        print(f"Command failed: {e.stderr}")
-        html_table = f"<pre>Error executing command: {e.stderr}</pre>"
+    except Exception as e:
+        print(f"Command failed: {e}")
+        html_table = f"<pre>Error executing command: {e}</pre>"
 
-    return render_template('output.html', table=html_table)
+    return render_template('output.html', table=html_table, command=cmd)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

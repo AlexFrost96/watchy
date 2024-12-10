@@ -9,15 +9,24 @@
 </head>
 <body>
     <div class="container mt-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="mb-4">Command Output</h1>
+        <div class="d-flex justify-content-start align-items-center mb-3">
             <a href="/" class="btn btn-primary">Return to Home</a>
-            <a href="{{ url_for('download_file') }}" class="btn btn-success" download>
+            <a href="{{ url_for('download_file') }}" class="btn btn-link" download>
                 Download Updated Data (CSV)
             </a>
         </div>
-        <h1 class="mb-4">Command Output</h1>
-        <div class="table-responsive">
-            {{ table|safe }}
+        <div class="row">
+            <div class="col-12">
+                <p class="lead">
+                    {{ command }}
+                </p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12 table-responsive">
+                {{ table|safe }}
+            </div>
         </div>
     </div>
 

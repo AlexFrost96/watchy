@@ -7,13 +7,13 @@ import textwrap
 import subprocess
 import argparse
 
-# Шляхи до MaxMind баз даних
+# Location of MaxMind DB
 GEO_DB_PATH_COUNTRY = "GeoLite2-Country.mmdb"
 GEO_DB_PATH_ASN = "GeoLite2-ASN.mmdb"
 NETFLOW_BASE_DIR = "/var/log/netflow/"
-# Мережа для "Home"
+# Home Network
 HOME_NETWORK = ipaddress.IPv4Network("192.168.50.0/24")
-# Додаємо аргументи
+# Parsing arguments
 parser = argparse.ArgumentParser(description="Parsing arguments for nfdump")
 parser.add_argument("--top", type=int, default=100, help="Show top N conversation (default: 10)")
 parser.add_argument("--filter", type=str, default=None, help="Filter nfdump (default: all packets)")
@@ -22,7 +22,70 @@ parser.add_argument("--routers", type=str, default=None, help="Routers - where w
 parser.add_argument("--format", type=str, default=None, help="Format for output (Default: csv)")
 args = parser.parse_args()
 
-def execute_nfdump(top, time, routers, filter_param, output_format):
+
+def process_traffic(csv_file_path="data.csv", output_csv_path="updated_data.csv"):
+    # Step 1: Parse the data
+    ip_pairs_traffic, time_data = parse_ips_and_traffic(csv_file_path)
+
+    if not ip_pairs_traffic:
+        print("No traffic found or no matches in the data.")
+        return False  # Return False if no data found
+
+    # Step 2: Get GEO and ASN
+    geo_and_asn = get_geo_and_asn(ip_pairs_traffic)
+
+    # Step 3: Sort traffic
+    sorted_geo_and_asn = sorted(geo_and_asn.items(), key=lambda x: x[1]['bytes'], reverse=True)
+
+    # # Step 4: Prepare the table for output
+    headers = ["Src IP", "src_ASN", "src_ASN Desc", "src_Country", 
+               "Dst IP", "dst_ASN", "dst_ASN Desc", "dst_Country", 
+               "MBytes", "Packets", "Time"]
+    # table_data = []
+    # for idx, ((src_ip, dst_ip), locations) in enumerate(sorted_geo_and_asn):
+    #     mb_bytes = locations['bytes'] / 1_000_000  # Convert bytes to MB
+    #     table_data.append([
+    #         wrap_text(src_ip, width=15),
+    #         wrap_text(str(locations['src_asn']), width=7),
+    #         wrap_text(locations['src_asn_desc'], width=12),
+    #         wrap_text(locations['src_country'], width=12),
+    #         wrap_text(dst_ip, width=15),
+    #         wrap_text(str(locations['dst_asn']), width=7),
+    #         wrap_text(locations['dst_asn_desc'], width=12),
+    #         wrap_text(locations['dst_country'], width=12),
+    #         f"{mb_bytes:.2f} MB",
+    #         locations['packets'],
+    #         time_data[idx]
+    #     ])
+
+    # # Step 5: Print the table
+    # print(tabulate(table_data, headers=headers, tablefmt="grid"))
+
+    # Step 6: Save updated data to a new CSV
+    with open(output_csv_path, "w", newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(headers)
+        writer.writerows([
+            [
+                src_ip,
+                locations['src_asn'],
+                locations['src_asn_desc'],
+                locations['src_country'],
+                dst_ip,
+                locations['dst_asn'],
+                locations['dst_asn_desc'],
+                locations['dst_country'],
+                f"{locations['bytes'] / 1000000:.2f} MB",
+                locations['packets'],
+                time_data[idx]
+            ]
+            for idx, ((src_ip, dst_ip), locations) in enumerate(geo_and_asn.items())
+        ])
+
+    print(f"Updated CSV saved to: {output_csv_path}")
+    return True  # Indicate success
+
+def execute_nfdump(top=None, time=None, routers=None, filter_param=None, output_format=None):
     # Construct the nfdump command
     cmd = "nfdump {} -s record/bytes -n {}"
     routers_dir = ""
@@ -58,15 +121,15 @@ def execute_nfdump(top, time, routers, filter_param, output_format):
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True)
         output = result.stdout if output_format == "e" else "Output saved to data.csv"
         print(output)
-        return output
+        return output, cmd
     except subprocess.CalledProcessError as e:
         print(f"Error executing command: {e.stderr}")
-        return f"Error: {e.stderr}"
+        return f"Error: {e.stderr}", cmd
 
-# Функція для парсингу IP-адрес та трафіку із CSV
+# Function for parsing IP addresses and traffic flow from CSV
 def parse_ips_and_traffic(csv_file):
     ips_traffic = []
-    time_data = []  # Для зберігання часу
+    time_data = []
     with open(csv_file, "r") as file:
         reader = csv.DictReader(file)
         for row in reader:
@@ -75,8 +138,8 @@ def parse_ips_and_traffic(csv_file):
                 src_ip = row["srcAddr"]
                 dst_ip = row["dstAddr"]
                 packets = int(row["packets"])
-                bytes_ = int(row["bytes"]) 
-                ips_traffic.append((src_ip, dst_ip, packets, bytes_))
+                bytes = int(row["bytes"]) 
+                ips_traffic.append((src_ip, dst_ip, packets, bytes))
                 time_data.append(first_seen)
             except KeyError as e:
                 print(f"Missing column in CSV: {e}")
@@ -84,13 +147,13 @@ def parse_ips_and_traffic(csv_file):
                 print(f"Invalid data format: {e}")
     return ips_traffic, time_data
 
-# Функція для визначення геолокації та ASN IP-адрес
+# Function for identification of IP geolocation and ASN
 def get_geo_and_asn(ips_traffic):
     geo_dict = {}
     with geoip2.database.Reader(GEO_DB_PATH_COUNTRY) as country_reader, \
          geoip2.database.Reader(GEO_DB_PATH_ASN) as asn_reader:
 
-        for src_ip, dst_ip, packets, bytes_ in ips_traffic:
+        for src_ip, dst_ip, packets, bytes in ips_traffic:
             src_country = "Unknown"
             dst_country = "Unknown"
             src_asn = "Unknown"
@@ -98,13 +161,13 @@ def get_geo_and_asn(ips_traffic):
             src_asn_desc = "Unknown"
             dst_asn_desc = "Unknown"
 
-            # Перевірка, чи IP в мережі 192.168.50.0/24
+            # Checking we are not in local networks
             if ipaddress.IPv4Address(src_ip) in HOME_NETWORK:
                 src_country = "Home"
             if ipaddress.IPv4Address(dst_ip) in HOME_NETWORK:
                 dst_country = "Home"
 
-            # Геолокація та ASN для src_ip
+            # Parsing geo and ASN for src_ip
             try:
                 src_response = country_reader.country(src_ip)
                 src_country = f"{src_response.country.iso_code}, {src_response.country.name or 'Unknown'}"
@@ -116,7 +179,7 @@ def get_geo_and_asn(ips_traffic):
             except Exception as e:
                 print(f"Error processing {src_ip}: {e}")
 
-            # Геолокація та ASN для dst_ip
+           # Parsing geo and ASN for dst_ip
             try:
                 dst_response = country_reader.country(dst_ip)
                 dst_country = f"{dst_response.country.iso_code}, {dst_response.country.name or 'Unknown'}"
@@ -136,7 +199,7 @@ def get_geo_and_asn(ips_traffic):
                 "dst_asn": dst_asn,
                 "dst_asn_desc": dst_asn_desc,
                 "packets": packets,
-                "bytes": bytes_  # Зберігаємо байти
+                "bytes": bytes
             }
 
     return geo_dict
@@ -145,65 +208,9 @@ def get_geo_and_asn(ips_traffic):
 def wrap_text(text, width=12):
     return textwrap.fill(text, width=width)
 
-# Основний блок
+
 if __name__ == "__main__":
     # Call the nfdump function with parsed arguments
     execute_nfdump(args.top, args.time, args.routers, args.filter, args.format)
-    # Шлях до CSV файлу
-    CSV_FILE_PATH = "data.csv"
-
-    # Парсимо IP-адреси та трафік, а також час
-    ip_pairs_traffic, time_data = parse_ips_and_traffic(CSV_FILE_PATH)
-
-    if not ip_pairs_traffic:
-        print("No traffic found or no matches in the data.")
-
-    # Визначаємо геолокації, ASN, пакети та байти
-    geo_and_asn = get_geo_and_asn(ip_pairs_traffic)
-
-    # Сортуємо по байтах у порядку спадання
-    sorted_geo_and_asn = sorted(geo_and_asn.items(), key=lambda x: x[1]['bytes'], reverse=True)
-
-    # Формуємо таблицю для виводу
-    table_data = []
-    for idx, ((src_ip, dst_ip), locations) in enumerate(sorted_geo_and_asn):
-        # Перетворюємо біти в мегабіти для виведення
-        mb_bytes = locations['bytes'] / 1_000_000  # Конвертація байтів в мегабайти
-        table_data.append([
-            wrap_text(src_ip, width=15),
-            wrap_text(str(locations['src_asn']), width=7),
-            wrap_text(locations['src_asn_desc'], width=12),
-            wrap_text(locations['src_country'], width=12),
-            wrap_text(dst_ip, width=15),
-            wrap_text(str(locations['dst_asn']), width=7),
-            wrap_text(locations['dst_asn_desc'], width=12),
-            wrap_text(locations['dst_country'], width=12),
-            f"{mb_bytes:.2f} MB",  # Виводимо мегабайти
-            locations['packets'],
-            time_data[idx]  # Додаємо час з time_data
-        ])
-
-    # Виведення таблиці
-    headers = ["Src IP", "src_ASN", "src_ASN Desc", "src_Country", "Dst IP", "dst_ASN", "dst_ASN Desc", "dst_Country", "MBytes", "Packets", "Time"]
-    print(tabulate(table_data, headers=headers, tablefmt="grid"))
-
-    # Збереження в оновлений CSV файл
-    with open("updated_data.csv", "w", newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(headers)
-        for idx, ((src_ip, dst_ip), locations) in enumerate(geo_and_asn.items()):
-            writer.writerow([
-                src_ip,
-                locations['src_asn'],
-                locations['src_asn_desc'],
-                locations['src_country'],
-                dst_ip,
-                locations['dst_asn'],
-                locations['dst_asn_desc'],
-                locations['dst_country'],
-                f"{locations['bytes'] / 1000000} MB",
-                locations['packets'],
-                time_data[idx]
-            ])
-
-    print("Updated CSV saved to: updated_data.csv")
+    # Main CSV location
+    process_traffic()

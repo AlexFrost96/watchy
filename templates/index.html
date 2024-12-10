@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,21 +18,25 @@
                         <h1 class="card-title text-center">Analyse Traffic</h1>
                         <div class="graph-container mb-3">
                             {% if graph %}
-                                {{ graph|safe }}
+                            {{ graph|safe }}
                             {% else %}
-                                <p>No data available for the selected time range.</p>
+                            <p>No data available for the selected time range.</p>
                             {% endif %}
                         </div>
-                        <form action="/update" method="post" class="d-flex align-items-end gap-2">
-                            <div class="form-group">
+                        <form action="/update" method="post" class="row g-2">
+                            <div class="form-group col-12 col-md">
                                 <label for="start_time" class="form-label">Start Time:</label>
-                                <input type="text" id="start_time" name="start_time" value="{{ start_time }}" class="form-control">
+                                <input type="text" id="start_time" name="start_time" value="{{ start_time }}"
+                                    class="form-control">
                             </div>
-                            <div class="form-group">
+                            <div class="form-group col-12 col-md">
                                 <label for="end_time" class="form-label">End Time:</label>
-                                <input type="text" id="end_time" name="end_time" value="{{ end_time }}" class="form-control">
+                                <input type="text" id="end_time" name="end_time" value="{{ end_time }}"
+                                    class="form-control">
                             </div>
-                            <button type="submit" class="btn btn-primary">UPDATE</button>
+                            <div class="col-12 col-md-auto d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">UPDATE</button>
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -48,25 +53,27 @@
                             </div>
                             <div class="mb-3">
                                 <label for="filter" class="form-label">Filter:</label>
-                                <input type="text" id="filter" name="filter" placeholder="e.g., srcip, dstip" class="form-control">
+                                <input type="text" id="filter" name="filter" placeholder="e.g., srcip, dstip"
+                                    class="form-control">
                             </div>
                             <div class="mb-3">
                                 <label for="router_ip" class="form-label">Router:</label>
                                 <select id="router_ip" name="router_ip" multiple class="form-select">
                                     {% for device in devices %}
-                                        <option value="{{ device }}">{{ device }}</option>
+                                    <option value="{{ device }}">{{ device }}</option>
                                     {% endfor %}
                                 </select>
-                                <small class="text-muted">Hold down Ctrl (Windows) or Command (Mac) to select multiple options.</small>
+                                <small class="text-muted">Hold down Ctrl (Windows) or Command (Mac) to select multiple
+                                    options.</small>
                             </div>
                             <div class="mb-3">
                                 <label for="format" class="form-label">Format:</label>
                                 <select id="format" name="format" class="form-select">
                                     <option value="raw">Raw record dump</option>
-                                    <option value="line" selected>Standard output line format</option>
+                                    <option value="line">Standard output line format</option>
                                     <option value="long">Long output format</option>
                                     <option value="extended">Extended output</option>
-                                    <option value="csv">CSV (comma-separated)</option>
+                                    <option value="csv" selected>CSV (comma-separated)</option>
                                     <option value="json">JSON format</option>
                                     <option value="ndjson">NDJSON</option>
                                     <option value="null">No flow records</option>
@@ -86,7 +93,6 @@
         <div id="output-section" class="mt-4 d-none">
             <div class="card">
                 <div class="card-body">
-                    <h2 class="card-title">Output</h2>
                     <div id="output">
                         <!-- Output will load here -->
                     </div>
@@ -100,46 +106,62 @@
             </div>
         </div>
     </div>
-
     <script>
-        // Synchronize start_time and end_time between forms
-        const startTimeInput = document.getElementById('start_time');
-        const endTimeInput = document.getElementById('end_time');
-        const hiddenStartTimeInput = document.getElementById('hidden_start_time');
-        const hiddenEndTimeInput = document.getElementById('hidden_end_time');
+        document.addEventListener("DOMContentLoaded", () => {
+            // Synchronize start_time and end_time between forms
+            const startTimeInput = document.getElementById('start_time');
+            const endTimeInput = document.getElementById('end_time');
+            const hiddenStartTimeInput = document.getElementById('hidden_start_time');
+            const hiddenEndTimeInput = document.getElementById('hidden_end_time');
 
-        startTimeInput.addEventListener('input', () => {
-            hiddenStartTimeInput.value = startTimeInput.value;
-        });
+            if (startTimeInput && hiddenStartTimeInput) {
+                startTimeInput.addEventListener('input', () => {
+                    hiddenStartTimeInput.value = startTimeInput.value;
+                });
+            }
 
-        endTimeInput.addEventListener('input', () => {
-            hiddenEndTimeInput.value = endTimeInput.value;
-        });
+            if (endTimeInput && hiddenEndTimeInput) {
+                endTimeInput.addEventListener('input', () => {
+                    hiddenEndTimeInput.value = endTimeInput.value;
+                });
+            }
 
-        // Run button functionality
-        document.querySelector('form[action="/run"]').addEventListener('submit', function (event) {
-            event.preventDefault();
-            const form = event.target;
+            // Run button functionality
+            const runForm = document.querySelector('form[action="/run"]');
+            if (runForm) {
+                runForm.addEventListener('submit', function (event) {
+                    event.preventDefault(); // Запобігаємо стандартному поведінці форми
+                    const form = event.target;
 
-            // Show loading indicator
-            document.getElementById('loading-indicator').style.display = 'block';
-            document.getElementById('output-section').classList.remove('d-none');
+                    // Reset output and show loading indicator
+                    const outputSection = document.getElementById('output-section');
+                    const outputElement = document.getElementById('output');
+                    const loadingIndicator = document.getElementById('loading-indicator');
 
-            const formData = new FormData(form);
-            fetch('/run', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.text())
-            .then(data => {
-                document.getElementById('loading-indicator').style.display = 'none';
-                document.getElementById('output').innerHTML = data;
-            })
-            .catch(error => {
-                document.getElementById('loading-indicator').style.display = 'none';
-                document.getElementById('output').innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
-            });
+                    if (outputElement) outputElement.innerHTML = ''; // Очищаємо попередній вивід
+                    if (loadingIndicator) loadingIndicator.style.display = 'block'; // Показуємо індикатор
+                    if (outputSection) outputSection.classList.remove('d-none'); // Переконуємось, що секція видима
+
+                    const formData = new FormData(form);
+                    fetch('/run', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(response => response.text())
+                        .then(data => {
+                            if (loadingIndicator) loadingIndicator.style.display = 'none'; // Приховуємо індикатор
+                            if (outputElement) outputElement.innerHTML = data; // Виводимо результат
+                        })
+                        .catch(error => {
+                            if (loadingIndicator) loadingIndicator.style.display = 'none'; // Приховуємо індикатор
+                            if (outputElement) {
+                                outputElement.innerHTML = `<p class="text-danger">Error: ${error.message}</p>`; // Виводимо помилку
+                            }
+                        });
+                });
+            }
         });
     </script>
 </body>
+
 </html>

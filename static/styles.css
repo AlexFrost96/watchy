@@ -129,20 +129,6 @@ button:active {
     transform: translateY(0);
 }
 
-/* .output-container {
-    width: 100%;
-    margin-top: 20px;
-    padding: 20px;
-    background-color: #f9f9f9;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    display: none; /* Приховуємо за замовчуванням */
-} */
-
-.output-container.active {
-    display: block; /* Показуємо, коли клас active */
-}
 
 .loading-indicator {
     display: none;
