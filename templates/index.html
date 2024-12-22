@@ -4,10 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analyse Traffic</title>
+    <title>Watchy - traffic analyzer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
+
 <body class="bg-light">
     <div class="container mt-4">
         <div class="row g-4">
@@ -15,13 +17,11 @@
             <div class="col-md-8">
                 <div class="card">
                     <div class="card-body">
-                        <h1 class="card-title text-center">Analyse Traffic</h1>
+                        <h1 class="card-title text-center">Watchy</h1>
                         <div class="graph-container mb-3">
-                            {% if graph %}
-                            {{ graph|safe }}
-                            {% else %}
-                            <p>No data available for the selected time range.</p>
-                            {% endif %}
+                            <div class="box columnbox mt-4">
+                                <div id="columnchart"></div>
+                            </div>
                         </div>
                         <form action="/update" method="post" class="row g-2">
                             <div class="form-group col-12 col-md">
@@ -113,35 +113,35 @@
             const endTimeInput = document.getElementById('end_time');
             const hiddenStartTimeInput = document.getElementById('hidden_start_time');
             const hiddenEndTimeInput = document.getElementById('hidden_end_time');
-
+    
             if (startTimeInput && hiddenStartTimeInput) {
                 startTimeInput.addEventListener('input', () => {
                     hiddenStartTimeInput.value = startTimeInput.value;
                 });
             }
-
+    
             if (endTimeInput && hiddenEndTimeInput) {
                 endTimeInput.addEventListener('input', () => {
                     hiddenEndTimeInput.value = endTimeInput.value;
                 });
             }
-
+    
             // Run button functionality
             const runForm = document.querySelector('form[action="/run"]');
             if (runForm) {
                 runForm.addEventListener('submit', function (event) {
-                    event.preventDefault(); // Запобігаємо стандартному поведінці форми
+                    event.preventDefault(); // Prevent default form behavior
                     const form = event.target;
-
+    
                     // Reset output and show loading indicator
                     const outputSection = document.getElementById('output-section');
                     const outputElement = document.getElementById('output');
                     const loadingIndicator = document.getElementById('loading-indicator');
-
-                    if (outputElement) outputElement.innerHTML = ''; // Очищаємо попередній вивід
-                    if (loadingIndicator) loadingIndicator.style.display = 'block'; // Показуємо індикатор
-                    if (outputSection) outputSection.classList.remove('d-none'); // Переконуємось, що секція видима
-
+    
+                    if (outputElement) outputElement.innerHTML = ''; // Clear previous output
+                    if (loadingIndicator) loadingIndicator.style.display = 'block'; // Show loading indicator
+                    if (outputSection) outputSection.classList.remove('d-none'); // Ensure section is visible
+    
                     const formData = new FormData(form);
                     fetch('/run', {
                         method: 'POST',
@@ -149,19 +149,87 @@
                     })
                         .then(response => response.text())
                         .then(data => {
-                            if (loadingIndicator) loadingIndicator.style.display = 'none'; // Приховуємо індикатор
-                            if (outputElement) outputElement.innerHTML = data; // Виводимо результат
+                            if (loadingIndicator) loadingIndicator.style.display = 'none'; // Hide indicator
+                            if (outputElement) outputElement.innerHTML = data; // Show result
                         })
                         .catch(error => {
-                            if (loadingIndicator) loadingIndicator.style.display = 'none'; // Приховуємо індикатор
+                            if (loadingIndicator) loadingIndicator.style.display = 'none'; // Hide indicator
                             if (outputElement) {
-                                outputElement.innerHTML = `<p class="text-danger">Error: ${error.message}</p>`; // Виводимо помилку
+                                outputElement.innerHTML = `<p class="text-danger">Error: ${error.message}</p>`; // Show error
                             }
                         });
                 });
             }
+    
+            // Generate ApexCharts bar chart
+            try {
+                const graphData = JSON.parse('{{ graph_data | tojson | safe }}');
+    
+                if (!graphData || graphData.length === 0) {
+                    console.warn("No data available for the graph.");
+                    return;
+                }
+    
+                const series = graphData.map(entry => ({
+                    name: entry.name,
+                    data: entry.data.map(point => ({
+                        x: new Date(point.x), // Ensure x is a valid Date object
+                        y: point.y
+                    }))
+                }));
+    
+                const options = {
+                    chart: {
+                        type: 'bar', // Specify bar chart
+                        height: 350
+                    },
+                    series: series,
+                    xaxis: {
+                        type: 'datetime',
+                        title: {
+                            text: 'Timestamp'
+                        },
+                        labels: {
+                            rotate: -45 // Rotate labels for better visibility
+                        }
+                    },
+                    yaxis: {
+                        title: {
+                            text: 'Bytes'
+                        }
+                    },
+                    title: {
+                        text: 'Combined Traffic Analysis',
+                        align: 'center'
+                    },
+                    tooltip: {
+                        x: {
+                            format: 'dd MMM yyyy HH:mm:ss'
+                        }
+                    },
+                    dataLabels: {
+                        enabled: false // Disable values on bars
+                    },
+                    plotOptions: {
+                        bar: {
+                            horizontal: false,
+                            columnWidth: '60%',
+                            endingShape: 'rounded'
+                        }
+                    }
+                };
+    
+                const chart = new ApexCharts(document.querySelector("#columnchart"), options);
+                chart.render();
+            } catch (error) {
+                console.error("Error rendering the graph:", error);
+            }
         });
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js"></script>
+    <script src="./static/assets/apexcharts.js"></script>
+    <!-- <script src="./static/assets/script.js"></script> -->
 </body>
 
 </html>

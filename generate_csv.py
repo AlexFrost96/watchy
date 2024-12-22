@@ -3,12 +3,14 @@ import csv
 import pandas as pd
 from datetime import datetime
 
-# Шлях до основної директорії з файлами nfcapd
 BASE_DIR = "/var/log/netflow/"
 OUTPUT_DIR = "./output_csv"  # Директорія для збереження CSV
 
-# Функція для обробки файлів nfcapd у конкретній директорії (роутер)
-def process_router_files(router_dir, router_name):
+
+def process_router_files(router_dir, router_name) -> None:
+    """
+    Processes NetFlow data files in a specified directory and generates a CSV file with summarized data.
+    """
     csv_file = os.path.join(OUTPUT_DIR, f"{router_name}_netflow.csv")
     
     # Перебираємо файли nfcapd.*
@@ -17,34 +19,41 @@ def process_router_files(router_dir, router_name):
             if file.startswith("nfcapd.") and not file.endswith(".current"):
                 try:
                     file_path = os.path.join(root, file)
-                    # Отримуємо час із назви файлу
+                    # Отримуємо timestamp із назви файлу
                     file_name = os.path.basename(file_path)
                     timestamp_str = file_name.split(".")[1]
                     timestamp = datetime.strptime(timestamp_str, "%Y%m%d%H%M")
-
+                    
                     # Аналізуємо файл за допомогою nfdump
                     cmd = f"nfdump -r {file_path} -I"
                     result = os.popen(cmd).read()
-                    data = {"Timestamp": timestamp}
-                    for line in result.split("\n"):
-                        if "Flows:" in line:
-                            data["Flows"] = int(line.split(":")[1].strip())
-                        elif "Packets:" in line:
-                            data["Packets"] = int(line.split(":")[1].strip())
-                        elif "Bytes:" in line:
-                            data["Bytes"] = int(line.split(":")[1].strip())
+                    data = {"Timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S")}
                     
-                    # Якщо CSV не існує, створюємо файл із заголовком
+                    for line in result.split("\n"):
+                        if ": " in line:
+                            parts = line.split(": ", 1)
+                            if len(parts) == 2:
+                                key, value = parts
+                                if key == "Ident":
+                                    value = value.replace('/var/log/netflow/', '')
+                                else:
+                                    pass
+                                try:
+                                    data[key.strip()] = int(value.strip())
+                                except ValueError:
+                                    data[key.strip()] = value.strip()
+                    
+                    # Якщо CSV не існує, створюємо файл із заголовками
                     if not os.path.exists(csv_file):
                         with open(csv_file, mode="w", newline="") as file:
                             writer = csv.writer(file)
-                            writer.writerow(["Timestamp", "Flows", "Packets", "Bytes"])
+                            writer.writerow(data.keys())
                     
                     # Додаємо рядок у CSV
                     with open(csv_file, mode="a", newline="") as file:
                         writer = csv.writer(file)
-                        writer.writerow([data["Timestamp"], data["Flows"], data["Packets"], data["Bytes"]])
-
+                        writer.writerow(data.values())
+                
                 except ValueError as ve:
                     print(f"Skipping invalid file: {file}. Reason: {ve}")
                 except Exception as e:
