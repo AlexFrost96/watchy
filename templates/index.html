@@ -113,35 +113,35 @@
             const endTimeInput = document.getElementById('end_time');
             const hiddenStartTimeInput = document.getElementById('hidden_start_time');
             const hiddenEndTimeInput = document.getElementById('hidden_end_time');
-    
+
             if (startTimeInput && hiddenStartTimeInput) {
                 startTimeInput.addEventListener('input', () => {
                     hiddenStartTimeInput.value = startTimeInput.value;
                 });
             }
-    
+
             if (endTimeInput && hiddenEndTimeInput) {
                 endTimeInput.addEventListener('input', () => {
                     hiddenEndTimeInput.value = endTimeInput.value;
                 });
             }
-    
+
             // Run button functionality
             const runForm = document.querySelector('form[action="/run"]');
             if (runForm) {
                 runForm.addEventListener('submit', function (event) {
                     event.preventDefault(); // Prevent default form behavior
                     const form = event.target;
-    
+
                     // Reset output and show loading indicator
                     const outputSection = document.getElementById('output-section');
                     const outputElement = document.getElementById('output');
                     const loadingIndicator = document.getElementById('loading-indicator');
-    
+
                     if (outputElement) outputElement.innerHTML = ''; // Clear previous output
                     if (loadingIndicator) loadingIndicator.style.display = 'block'; // Show loading indicator
                     if (outputSection) outputSection.classList.remove('d-none'); // Ensure section is visible
-    
+
                     const formData = new FormData(form);
                     fetch('/run', {
                         method: 'POST',
@@ -160,28 +160,35 @@
                         });
                 });
             }
-    
+
             // Generate ApexCharts bar chart
             try {
                 const graphData = JSON.parse('{{ graph_data | tojson | safe }}');
-    
+                const yAxisUnit = '{{ yaxis_unit }}'; // Fetch the scale passed from the backend
+
                 if (!graphData || graphData.length === 0) {
                     console.warn("No data available for the graph.");
                     return;
                 }
-    
+
                 const series = graphData.map(entry => ({
                     name: entry.name,
                     data: entry.data.map(point => ({
                         x: new Date(point.x), // Ensure x is a valid Date object
                         y: point.y
                     }))
+                    // .sort((a, b) => a.y - b.y)
                 }));
-    
+
                 const options = {
                     chart: {
                         type: 'bar', // Specify bar chart
-                        height: 350
+                        height: 350,
+                        stacked: true,
+                    },
+                    stroke: {
+                        curve: 'smooth',
+                        // width: 2,
                     },
                     series: series,
                     xaxis: {
@@ -190,12 +197,18 @@
                             text: 'Timestamp'
                         },
                         labels: {
-                            rotate: -45 // Rotate labels for better visibility
+                            rotate: -45, // Rotate labels for better visibility
+                            datetimeUTC: false
                         }
                     },
                     yaxis: {
                         title: {
-                            text: 'Bytes'
+                            text: `Traffic (${yAxisUnit})` // Set Y-axis title dynamically
+                        },
+                        labels: {
+                            formatter: function (value) {
+                                return value.toFixed(2); // Format to 2 decimal places
+                            }
                         }
                     },
                     title: {
@@ -205,6 +218,11 @@
                     tooltip: {
                         x: {
                             format: 'dd MMM yyyy HH:mm:ss'
+                        },
+                        y: {
+                            formatter: function (value) {
+                                return `${value.toFixed(2)} ${yAxisUnit}`; // Append the unit to tooltip
+                            }
                         }
                     },
                     dataLabels: {
@@ -213,12 +231,12 @@
                     plotOptions: {
                         bar: {
                             horizontal: false,
-                            columnWidth: '60%',
+                            columnWidth: '30%',
                             endingShape: 'rounded'
                         }
                     }
                 };
-    
+
                 const chart = new ApexCharts(document.querySelector("#columnchart"), options);
                 chart.render();
             } catch (error) {

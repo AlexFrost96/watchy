@@ -1,5 +1,7 @@
 #!/bin/bash
+
 LOG_DIR="/var/log/netflow"
+PATH=/usr/local/bin:/usr/bin:/bin:$PATH
 
 # Iterate through all subdirectories (e.g., 10.1.1.1, 10.1.1.3, 10.1.1.4)
 for SUBDIR in "$LOG_DIR"/*/; do
@@ -11,13 +13,15 @@ for SUBDIR in "$LOG_DIR"/*/; do
         find "$SUBDIR" -maxdepth 1 -type f -name "nfcapd.*" | while read -r FILE; do
             # Extract the file's creation date from its name (format YYYYMMDD)
             FILE_DATE=$(echo "$FILE" | grep -oP '\d{8}')
+            ROUTER_DIR=$(basename "$SUBDIR")
 
             # Check if a valid date was found
             if [[ -n "$FILE_DATE" ]]; then
                 # Format FILE_DATE as YYYY/MM/DD
                 FILE_DIR=$(date -d "$FILE_DATE" '+%Y/%m/%d')
+                FORMATTED_PATH="$SUBDIR$FILE_DIR/$(basename "$FILE")"
 
-                # Check if the file contains NetFlow data
+                #Check if the file contains NetFlow data
                 if nfdump -r "$FILE" | grep "No matching flows"; then
                     # If the file is older than 10 minutes, delete it
                     if [[ $(find "$FILE" -mmin +10 -print) ]]; then
@@ -30,8 +34,9 @@ for SUBDIR in "$LOG_DIR"/*/; do
                     # Move the file if it contains traffic flows
                     mkdir -p "$SUBDIR/$FILE_DIR"
                     mv "$FILE" "$SUBDIR/$FILE_DIR/"
-                    echo "File $FILE has been moved to $SUBDIR/$FILE_DIR/"
-                fi
+                    python3 generate_DB.py "$FORMATTED_PATH"
+                    echo "File $FILE has been moved to $FORMATTED_PATH"
+                    fi
             else
                 echo "Could not evaluate a date for file $FILE. Checking if it can be deleted..."
                 # Check if the file is older than 10 minutes
