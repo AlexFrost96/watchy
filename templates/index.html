@@ -182,13 +182,14 @@
 
                 const options = {
                     chart: {
-                        type: 'bar', // Specify bar chart
+                        type: 'area', // Specify bar chart
                         height: 350,
-                        stacked: true,
+                        // stacked: true,
+                        // stackType: 'normal'
                     },
                     stroke: {
-                        curve: 'smooth',
-                        // width: 2,
+                        width: 1,
+                        // colors: ['#fff']
                     },
                     series: series,
                     xaxis: {
@@ -197,9 +198,13 @@
                             text: 'Timestamp'
                         },
                         labels: {
-                            rotate: -45, // Rotate labels for better visibility
+                            // rotate: -45, // Rotate labels for better visibility
                             datetimeUTC: false
-                        }
+                        },
+                        // grouped: true,
+                    },
+                    fill: {
+                        opacity: 1
                     },
                     yaxis: {
                         title: {
@@ -231,8 +236,9 @@
                     plotOptions: {
                         bar: {
                             horizontal: false,
-                            columnWidth: '30%',
-                            endingShape: 'rounded'
+                            columnWidth: '100%',
+                            endingShape: 'rounded',
+
                         }
                     }
                 };
