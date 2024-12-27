@@ -6,6 +6,9 @@ import subprocess
 import argparse
 import mysql.connector
 import pandas as pd
+from datetime import datetime, timedelta
+import os
+
 
 # Location of MaxMind DB
 GEO_DB_PATH_COUNTRY = "GeoLite2-Country.mmdb"
@@ -51,7 +54,7 @@ def fetch_data_from_db(router_ips, start_time, end_time):
           AND Timestamp BETWEEN %s AND %s
         ORDER BY Timestamp ASC
     """
-    print("Query:", query)
+    # print("Query:", query)
     params = router_ips + [start_time, end_time]
     cursor.execute(query, params)
     data = cursor.fetchall()
@@ -89,7 +92,7 @@ def determine_scale(df, start_time, end_time, value_column="Bytes", timestamp_co
 
     # Find the maximum value in the selected range
     max_value = filtered_df[value_column].max()
-    print("Max value in the selected range:", max_value)
+    # print("Max value in the selected range:", max_value)
 
     # Determine the appropriate scale and unit
     if max_value < 1000:
@@ -259,42 +262,97 @@ def process_traffic(csv_file_path="data.csv", output_csv_path="updated_data.csv"
     return True  # Indicate success
 
 
-def execute_nfdump(top=None, time=None, routers=None, filter_param=None, output_format=None):
-    # Construct the nfdump command
-    cmd = "nfdump {} -s record/bytes -n {}"
-    routers_dir = ""
+
+def execute_nfdump(top=None, start_time=None, end_time=None, routers=None, filter_param=None, output_format=None):
+    """
+    Execute the nfdump command based on aligned file ranges for the specified time range.
+
+    Args:
+        top (int): Number of top records to fetch.
+        start_time (str): Start time in the format 'YYYY-MM-DD HH:MM:SS' or 'YYYY/MM/DD.HH:MM:SS'.
+        end_time (str): End time in the format 'YYYY-MM-DD HH:MM:SS' or 'YYYY/MM/DD.HH:MM:SS'.
+        routers (str): Comma-separated list of routers.
+        filter_param (str): Additional filter for nfdump.
+        output_format (str): Output format ('csv' or 'e' for extended).
+
+    Returns:
+        tuple: Output from the command and the command string.
+    """
+    def align_to_5_minute_interval(dt):
+        """Align the datetime to the nearest previous 5-minute interval."""
+        return dt - timedelta(minutes=dt.minute % 5, seconds=dt.second, microseconds=dt.microsecond)
+
+    def find_latest_available_file(router, base_dir, end_dt):
+        """Find the most recent available file for a router."""
+        while True:
+            folder = os.path.join(base_dir, router, end_dt.strftime('%Y/%m/%d'))
+            file_path = os.path.join(folder, f"nfcapd.{end_dt.strftime('%Y%m%d%H%M')}")
+            if os.path.exists(file_path):
+                return f"nfcapd.{end_dt.strftime('%Y%m%d%H%M')}"
+            end_dt -= timedelta(minutes=5)
+            if end_dt < start_dt:  # Avoid infinite loop
+                raise ValueError("No files available for the specified range.")
+
+    def is_nfdump_time_format(time_str):
+        """Check if the time string is in the nfdump-compatible format."""
+        try:
+            datetime.strptime(time_str, '%Y/%m/%d.%H:%M:%S')
+            return True
+        except ValueError:
+            return False
+
+    # Ensure time format is nfdump-compatible
+    try:
+        if not is_nfdump_time_format(start_time):
+            start_time = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S').strftime('%Y/%m/%d.%H:%M:%S')
+        if not is_nfdump_time_format(end_time):
+            end_time = datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S').strftime('%Y/%m/%d.%H:%M:%S')
+    except ValueError as e:
+        raise ValueError(f"Invalid time format: {e}")
+
+    # Parse and align start and end times
+    start_dt = align_to_5_minute_interval(datetime.strptime(start_time, '%Y/%m/%d.%H:%M:%S'))
+    end_dt = align_to_5_minute_interval(datetime.strptime(end_time, '%Y/%m/%d.%H:%M:%S'))
+
+    if start_dt > end_dt:
+        raise ValueError("Start time cannot be later than end time.")
+
+    start_file = f"nfcapd.{start_dt.strftime('%Y%m%d%H%M')}"
     if routers:
-        if len(routers.split(',')) > 1:
-            last_ip = routers.split(',')[-1]
-            for ip in routers.split(','):
-                if not routers_dir:
-                    routers_dir = routers_dir + f"-M {NETFLOW_BASE_DIR}{ip}"
-                elif ip == last_ip:
-                    routers_dir = routers_dir + f":{NETFLOW_BASE_DIR}{ip} -R ."
-                else:
-                    routers_dir = routers_dir + f":{NETFLOW_BASE_DIR}{ip}"
+        router_list = routers.split(",")
+        if len(router_list) == 1:
+            # Single router
+            router = router_list[0]
+            end_file = find_latest_available_file(router, NETFLOW_BASE_DIR, end_dt)
+            start_folder = os.path.join(NETFLOW_BASE_DIR, router, start_dt.strftime('%Y/%m/%d'))
+            if start_file == end_file:
+                cmd = f"nfdump -r {start_folder}/{start_file} -s record/bytes -n {top}"
+            else:
+                cmd = f"nfdump -R {start_folder}/{start_file}:{end_file} -s record/bytes -n {top}"
         else:
-            routers_dir = f"-R {NETFLOW_BASE_DIR}{routers}"
-        cmd = cmd.format(routers_dir, top)
+            # Multiple routers
+            for router in router_list:
+                end_file = find_latest_available_file(router, NETFLOW_BASE_DIR, end_dt)
+                if not end_file:
+                    raise ValueError(f"No files available for router {router}.")
+            router_dirs = f"{NETFLOW_BASE_DIR}" + ":".join(router_list)
+            cmd = f"nfdump -M {router_dirs} -R {start_file}:{end_file} -s record/bytes -n {top}"
     else:
-        cmd = cmd.format(f"-R {NETFLOW_BASE_DIR}", top)
-    if time:
-        cmd += f" -t {time}"
+        raise ValueError("No routers specified.")
+
     if filter_param:
         cmd += f" '{filter_param}'"
-    if output_format == "e":  # Extended format
+
+    if output_format == "extended":  # Extended format
         cmd += " -o extended"
     else:  # Default to CSV format with aggregation
-        cmd += " -A srcip,dstip -o csv"
-        if output_format != "e":  # Output to CSV file only if not 'extended'
-            cmd += " > data.csv"
+        cmd += " -A srcip,dstip -o csv > data.csv"
 
     print(f"Executing command: {cmd}")
     try:
         # Execute the command and capture output
-        result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, check=True)
-        output = result.stdout if output_format == "e" else "Output saved to data.csv"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True)
+        output = result.stdout if output_format == "extended" else "Output saved to data.csv"
         print(output)
         return output, cmd
     except subprocess.CalledProcessError as e:
@@ -302,8 +360,6 @@ def execute_nfdump(top=None, time=None, routers=None, filter_param=None, output_
         return f"Error: {e.stderr}", cmd
 
 # Function for parsing IP addresses and traffic flow from CSV
-
-
 def parse_ips_and_traffic(csv_file):
     ips_traffic = []
     time_data = []

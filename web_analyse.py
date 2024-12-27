@@ -12,8 +12,7 @@ app.secret_key = "HTi!-7c5CPr2P>(D#>£j'EW<YWyICX"
 
 @app.route('/')
 def home():
-    twelve_hours_ago = (datetime.now() - timedelta(hours=24)
-                        ).strftime('%Y-%m-%d %H:%M:%S')
+    twelve_hours_ago = (datetime.now() - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     devices = []
@@ -77,16 +76,14 @@ def download_file():
 
 @app.route('/run', methods=['POST'])
 def run_script():
-    start_time = request.form.get(
-        'start_time', request.form.get('hidden_start_time', ''))
-    end_time = request.form.get(
-        'end_time', request.form.get('hidden_end_time', ''))
+    start_time = request.form.get('start_time', request.form.get('hidden_start_time', ''))
+    end_time = request.form.get('end_time', request.form.get('hidden_end_time', ''))
     if start_time:
         start_time_obj = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
-        start_time = start_time_obj.strftime('%Y/%m/%d.%H:%M:%S')
+        start_time_nf = start_time_obj.strftime('%Y/%m/%d.%H:%M:%S')
     if end_time:
         end_time_obj = datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
-        end_time = end_time_obj.strftime('%Y/%m/%d.%H:%M:%S')
+        end_time_nf = end_time_obj.strftime('%Y/%m/%d.%H:%M:%S')
     top = request.form.get('top', '')
     if not top.strip():
         top = 100
@@ -95,15 +92,11 @@ def run_script():
     filter_param = request.form.get('filter', '')
     output_format = request.form.get('format', '')
     router_ips = ','.join(request.form.getlist('router_ip'))
-
-    if start_time and end_time:
-        time = f'{start_time}-{end_time}'
-    elif start_time:
-        time = start_time
+    cmd = ""  # Initialize cmd to ensure it always exists
     try:
         output_csv_path = "updated_data.csv"
-        output, cmd = execute_nfdump(
-            top, time, router_ips, filter_param, output_format)
+        output, cmd = execute_nfdump(top, start_time_nf, end_time_nf, router_ips, filter_param, output_format)
+        print(output)
         if process_traffic():
             if output_format == "csv" and os.path.exists(output_csv_path):
                 df = pd.read_csv(output_csv_path)
@@ -118,7 +111,7 @@ def run_script():
         print(f"Command failed: {e}")
         html_table = f"<pre>Error executing command: {e}</pre>"
 
-    return render_template('output.html', table=html_table, command=cmd)
+    return render_template('output.html', table=html_table, command=cmd, start_time=start_time, end_time=end_time)
 
 
 if __name__ == '__main__':
