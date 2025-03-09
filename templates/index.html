@@ -4,10 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analyse Traffic</title>
+    <title>Watchy - traffic analyzer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
+
 <body class="bg-light">
     <div class="container mt-4">
         <div class="row g-4">
@@ -15,13 +17,11 @@
             <div class="col-md-8">
                 <div class="card">
                     <div class="card-body">
-                        <h1 class="card-title text-center">Analyse Traffic</h1>
+                        <h1 class="card-title text-center">Watchy</h1>
                         <div class="graph-container mb-3">
-                            {% if graph %}
-                            {{ graph|safe }}
-                            {% else %}
-                            <p>No data available for the selected time range.</p>
-                            {% endif %}
+                            <div class="box columnbox mt-4">
+                                <div id="columnchart"></div>
+                            </div>
                         </div>
                         <form action="/update" method="post" class="row g-2">
                             <div class="form-group col-12 col-md">
@@ -108,11 +108,12 @@
     </div>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            // Synchronize start_time and end_time between forms
             const startTimeInput = document.getElementById('start_time');
             const endTimeInput = document.getElementById('end_time');
             const hiddenStartTimeInput = document.getElementById('hidden_start_time');
             const hiddenEndTimeInput = document.getElementById('hidden_end_time');
+            const startTimeInitial = startTimeInput;
+            const endTimeInitial = endTimeInput;
 
             if (startTimeInput && hiddenStartTimeInput) {
                 startTimeInput.addEventListener('input', () => {
@@ -130,7 +131,7 @@
             const runForm = document.querySelector('form[action="/run"]');
             if (runForm) {
                 runForm.addEventListener('submit', function (event) {
-                    event.preventDefault(); // Запобігаємо стандартному поведінці форми
+                    event.preventDefault(); // Prevent default form behavior
                     const form = event.target;
 
                     // Reset output and show loading indicator
@@ -138,9 +139,9 @@
                     const outputElement = document.getElementById('output');
                     const loadingIndicator = document.getElementById('loading-indicator');
 
-                    if (outputElement) outputElement.innerHTML = ''; // Очищаємо попередній вивід
-                    if (loadingIndicator) loadingIndicator.style.display = 'block'; // Показуємо індикатор
-                    if (outputSection) outputSection.classList.remove('d-none'); // Переконуємось, що секція видима
+                    if (outputElement) outputElement.innerHTML = ''; // Clear previous output
+                    if (loadingIndicator) loadingIndicator.style.display = 'block'; // Show loading indicator
+                    if (outputSection) outputSection.classList.remove('d-none'); // Ensure section is visible
 
                     const formData = new FormData(form);
                     fetch('/run', {
@@ -149,19 +150,132 @@
                     })
                         .then(response => response.text())
                         .then(data => {
-                            if (loadingIndicator) loadingIndicator.style.display = 'none'; // Приховуємо індикатор
-                            if (outputElement) outputElement.innerHTML = data; // Виводимо результат
+                            if (loadingIndicator) loadingIndicator.style.display = 'none'; // Hide indicator
+                            if (outputElement) outputElement.innerHTML = data; // Show result
                         })
                         .catch(error => {
-                            if (loadingIndicator) loadingIndicator.style.display = 'none'; // Приховуємо індикатор
+                            if (loadingIndicator) loadingIndicator.style.display = 'none'; // Hide indicator
                             if (outputElement) {
-                                outputElement.innerHTML = `<p class="text-danger">Error: ${error.message}</p>`; // Виводимо помилку
+                                outputElement.innerHTML = `<p class="text-danger">Error: ${error.message}</p>`; // Show error
                             }
                         });
                 });
             }
+
+            // Generate ApexCharts bar chart
+            try {
+                const graphData = JSON.parse('{{ graph_data | tojson | safe }}');
+                const yAxisUnit = '{{ yaxis_unit }}'; // Fetch the scale passed from the backend
+
+                if (!graphData || graphData.length === 0) {
+                    console.warn("No data available for the graph.");
+                    return;
+                }
+
+                const series = graphData.map(entry => ({
+                    name: entry.name,
+                    data: entry.data.map(point => ({
+                        x: new Date(point.x), // Ensure x is a valid Date object
+                        y: point.y
+                    }))
+                }));
+
+                const options = {
+                    chart: {
+                        type: 'area',
+                        height: 350,
+                        events: {
+                            zoomed: function(chartContext, { xaxis }) {
+                                    const startDate = new Date(xaxis.min);
+                                    const endDate = new Date(xaxis.max);
+
+                                    const start = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')} ${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}:${String(startDate.getSeconds()).padStart(2, '0')}`;
+                                    
+                                    const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')} ${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}:${String(endDate.getSeconds()).padStart(2, '0')}`;
+
+                                    startTimeInput.value = start;
+                                    endTimeInput.value = end;
+                                    hiddenStartTimeInput.value = start;
+                                    hiddenEndTimeInput.value = end;
+                                    updateGraph(start, end);
+                                },
+                            beforeResetZoom: function(chartContext, opts) {
+                                hiddenStartTimeInput = startTimeInitial;
+                                hiddenEndTimeInput = endTimeInitial;
+                                return {
+
+                                    xaxis: {
+                                        min: startTimeInput,
+                                        max: endTimeInput
+                                    }
+
+                                } 
+                            }
+                        }
+                    },
+                    stroke: {
+                        width: 1,
+                    },
+                    series: series,
+                    xaxis: {
+                        type: 'datetime',
+                        title: {
+                            text: 'Timestamp'
+                        },
+                        labels: {
+                            datetimeUTC: false
+                        },
+                    },
+                    fill: {
+                        opacity: 1
+                    },
+                    yaxis: {
+                        title: {
+                            text: `Traffic (${yAxisUnit})`
+                        },
+                        labels: {
+                            formatter: function (value) {
+                                return value.toFixed(2);
+                            }
+                        }
+                    },
+                    title: {
+                        text: 'Combined Traffic Analysis',
+                        align: 'center'
+                    },
+                    tooltip: {
+                        x: {
+                            format: 'dd MMM yyyy HH:mm:ss'
+                        },
+                        y: {
+                            formatter: function (value) {
+                                return `${value.toFixed(2)} ${yAxisUnit}`;
+                            }
+                        }
+                    },
+                    dataLabels: {
+                        enabled: false
+                    },
+                    plotOptions: {
+                        bar: {
+                            horizontal: false,
+                            columnWidth: '100%',
+                            endingShape: 'rounded',
+                        }
+                    }
+                };
+
+                const chart = new ApexCharts(document.querySelector("#columnchart"), options);
+                chart.render();
+            } catch (error) {
+                console.error("Error rendering the graph:", error);
+            }
         });
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js"></script>
+    <!-- <script src="./static/assets/apexcharts.js"></script> -->
+    <!-- <script src="./static/assets/script.js"></script> -->
 </body>
 
 </html>

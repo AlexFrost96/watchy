@@ -1,112 +1,78 @@
 from flask import Flask, request, render_template, session
-import subprocess
 import os
 import pandas as pd
 from datetime import datetime, timedelta
+from watchy_modules import execute_nfdump, process_traffic, fetch_data_from_db, determine_aggregation_interval, determine_scale, generate_combined_graph
 from flask import send_file
-from analyse_traffic import execute_nfdump, process_traffic
-import plotly.graph_objects as go
+
 
 app = Flask(__name__)
 app.secret_key = "HTi!-7c5CPr2P>(D#>£j'EW<YWyICX"
 
-BASE_DIR = "/var/log/netflow/"
-OUTPUT_DIR = "./output_csv"
-
-def generate_combined_graph(router_ips, start_time=None, end_time=None):
-    combined_df = pd.DataFrame()
-
-    for router_name in router_ips:
-        csv_file = os.path.join(OUTPUT_DIR, f"{router_name}_netflow.csv")
-        if not os.path.exists(csv_file):
-            print(f"CSV file for router {router_name} not found.")
-            continue
-
-        df = pd.read_csv(csv_file)
-        df["Timestamp"] = pd.to_datetime(df["Timestamp"])
-
-        # Фільтруємо дані за часовим діапазоном
-        if start_time:
-            start_time_dt = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
-        else:
-            raise print("Error, start_time is required for analysis!")
-        if end_time:
-            end_time_dt = datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
-        else:
-            end_time_dt = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        df = df[(df["Timestamp"] >= start_time_dt) & (df["Timestamp"] <= end_time_dt)]
-
-        if df.empty:
-            print(f"No data for router {router_name} in the selected range.")
-            continue
-
-        df["Router"] = router_name
-        combined_df = pd.concat([combined_df, df])
-
-    if combined_df.empty:
-        return None
-
-    # Створюємо комбінований стовпчастий графік
-    fig = go.Figure()
-
-    for router_name, router_data in combined_df.groupby("Router"):
-        fig.add_trace(go.Bar(
-            x=router_data["Timestamp"],
-            y=router_data["Bytes"],
-            name=router_name
-        ))
-
-    fig.update_layout(
-        title="Combined Traffic Analysis",
-        xaxis_title="Time",
-        yaxis_title="Bytes",
-        barmode="stack",
-        height=600,
-        legend_title="Routers",
-        margin=dict(l=20, r=20, t=30, b=20)
-    )
-
-    return fig.to_html(full_html=False)
-
 
 @app.route('/')
 def home():
-    #today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).strftime('%Y/%m/%d.%H:%M:%S')
-    twelve_hours_ago = (datetime.now() - timedelta(hours=12)).strftime('%Y-%m-%d %H:%M:%S')
+    twelve_hours_ago = (datetime.now() - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     devices = []
-
-    # Завантажуємо пристрої з devices.txt
     with open("devices.txt", "r") as f:
         for line in f:
             ip, _ = line.strip().split(",")
             devices.append(ip)
 
-            # Генеруємо графік для кожного пристрою
-    graph = generate_combined_graph(devices,twelve_hours_ago,now)
+    graph_data, scale_unit = generate_combined_graph(
+        devices, twelve_hours_ago, now)
+    return render_template('index.html', start_time=twelve_hours_ago, end_time=now, devices=devices, graph_data=graph_data, yaxis_unit=scale_unit)
 
-
-    return render_template('index.html', start_time=twelve_hours_ago, end_time=now, devices=devices, graph=graph)
 
 @app.route('/update', methods=['POST'])
 def update_graph():
-    start_time = request.form.get('start_time', request.form.get('hidden_start_time', ''))
-    end_time = request.form.get('end_time', request.form.get('hidden_end_time', ''))
+    start_time = request.form.get(
+        'start_time', request.form.get('hidden_start_time', ''))
+    end_time = request.form.get(
+        'end_time', request.form.get('hidden_end_time', ''))
     router_ips = request.form.getlist('router_ip')
 
     if not router_ips:
         with open("devices.txt", "r") as f:
             router_ips = [line.strip().split(",")[0] for line in f]
 
-    graph = generate_combined_graph(router_ips, start_time, end_time)
-    return render_template('index.html', start_time=start_time, end_time=end_time, devices=router_ips, graph=graph)
+    data = fetch_data_from_db(router_ips, start_time, end_time)  # Fetch data
+
+    if not data:
+        print("No data available for the selected range and routers.")
+        return render_template('index.html', start_time=start_time, end_time=end_time, devices=router_ips, graph_data=[], yaxis_unit="B")
+
+    df = pd.DataFrame(data)
+    df["Timestamp"] = pd.to_datetime(df["Timestamp"])
+
+    interval = determine_aggregation_interval(
+        start_time, end_time)  # Get aggregation interval
+    df.set_index("Timestamp", inplace=True)
+
+    graph_data = []
+    for router in router_ips:
+        router_data = df[df["Ident"] == router]
+        aggregated_router_data = router_data["Bytes"].resample(
+            interval).sum().reset_index()
+        aggregated_router_data["Bytes"] = (
+            aggregated_router_data["Bytes"] / determine_scale(df.reset_index(), start_time, end_time)[0]).round(2)
+
+        router_graph_data = {
+            "name": router,
+            "data": [{"x": ts.isoformat(), "y": bytes_val} for ts, bytes_val in zip(aggregated_router_data["Timestamp"], aggregated_router_data["Bytes"])]
+        }
+        graph_data.append(router_graph_data)
+
+    return render_template('index.html', start_time=start_time, end_time=end_time, devices=router_ips, graph_data=graph_data, yaxis_unit=determine_scale(df.reset_index(), start_time, end_time)[1])
+
 
 @app.route('/download')
 def download_file():
     file_path = 'updated_data.csv'
     return send_file(file_path, as_attachment=True)
+
 
 @app.route('/run', methods=['POST'])
 def run_script():
@@ -114,30 +80,28 @@ def run_script():
     end_time = request.form.get('end_time', request.form.get('hidden_end_time', ''))
     if start_time:
         start_time_obj = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
-        start_time = start_time_obj.strftime('%Y/%m/%d.%H:%M:%S')
+        start_time_nf = start_time_obj.strftime('%Y/%m/%d.%H:%M:%S')
     if end_time:
         end_time_obj = datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
-        end_time = end_time_obj.strftime('%Y/%m/%d.%H:%M:%S')
+        end_time_nf = end_time_obj.strftime('%Y/%m/%d.%H:%M:%S')
     top = request.form.get('top', '')
-    if not top.strip():  # Check if top is empty or just whitespace
+    if not top.strip():
         top = 100
     else:
-        top = int(top)  # Convert to an integer if provided
+        top = int(top)
     filter_param = request.form.get('filter', '')
     output_format = request.form.get('format', '')
     router_ips = ','.join(request.form.getlist('router_ip'))
-
-    if start_time and end_time:
-        time = f'{start_time}-{end_time}'
-    elif start_time:
-        time = start_time
+    cmd = ""  # Initialize cmd to ensure it always exists
     try:
         output_csv_path = "updated_data.csv"
-        output, cmd = execute_nfdump(top, time, router_ips, filter_param, output_format)
+        output, cmd = execute_nfdump(top, start_time_nf, end_time_nf, router_ips, filter_param, output_format)
+        print(output)
         if process_traffic():
             if output_format == "csv" and os.path.exists(output_csv_path):
                 df = pd.read_csv(output_csv_path)
-                html_table = df.to_html(classes="table table-hover", border=0, index=False)
+                html_table = df.to_html(
+                    classes="table table-hover", border=0, index=False)
             else:
                 html_table = f"<pre>{output}</pre>"
         else:
@@ -147,7 +111,8 @@ def run_script():
         print(f"Command failed: {e}")
         html_table = f"<pre>Error executing command: {e}</pre>"
 
-    return render_template('output.html', table=html_table, command=cmd)
+    return render_template('output.html', table=html_table, command=cmd, start_time=start_time, end_time=end_time)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -3,3 +3,4 @@
 *.txt
 nfcapd_csv.sh
 *__pycache__/
+*.log
