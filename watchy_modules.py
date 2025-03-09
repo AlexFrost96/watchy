@@ -131,12 +131,21 @@ def determine_aggregation_interval(start_time, end_time):
 
     if total_duration <= 3600:  # Up to 1 hour
         return '5T'  # 5 minutes
+    elif total_duration <= 38200:  # Up to 12 hours
+        return '10T'
     elif total_duration <= 86400:  # Up to 24 hours
-        return '15T'  # 15 minutes
+        return '20T'  # 20 minutes
     elif total_duration <= 172800:  # Up to 48 hours
-        return '30T'  # 30 min
+        return '40T'  # 40 min
+    elif total_duration <= 604800:  # Up to 7 days
+        return '1H'  # 1 hour
+    elif total_duration <= 1209600:  # Up to 14 days
+        return '2H'  # 2 hours
+    elif total_duration <= 2592000: # Up to 30 days
+        return '4H'
     else:  # Greater than 24 hours
-        return '1H'  # 1 hours
+        return '8h'  # 1 hours
+    
 
 def generate_combined_graph(router_ips, start_time=None, end_time=None):
     """

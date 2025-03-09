@@ -108,11 +108,12 @@
     </div>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            // Synchronize start_time and end_time between forms
             const startTimeInput = document.getElementById('start_time');
             const endTimeInput = document.getElementById('end_time');
             const hiddenStartTimeInput = document.getElementById('hidden_start_time');
             const hiddenEndTimeInput = document.getElementById('hidden_end_time');
+            const startTimeInitial = startTimeInput;
+            const endTimeInitial = endTimeInput;
 
             if (startTimeInput && hiddenStartTimeInput) {
                 startTimeInput.addEventListener('input', () => {
@@ -177,19 +178,43 @@
                         x: new Date(point.x), // Ensure x is a valid Date object
                         y: point.y
                     }))
-                    // .sort((a, b) => a.y - b.y)
                 }));
 
                 const options = {
                     chart: {
-                        type: 'area', // Specify bar chart
+                        type: 'area',
                         height: 350,
-                        // stacked: true,
-                        // stackType: 'normal'
+                        events: {
+                            zoomed: function(chartContext, { xaxis }) {
+                                    const startDate = new Date(xaxis.min);
+                                    const endDate = new Date(xaxis.max);
+
+                                    const start = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')} ${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}:${String(startDate.getSeconds()).padStart(2, '0')}`;
+                                    
+                                    const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')} ${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}:${String(endDate.getSeconds()).padStart(2, '0')}`;
+
+                                    startTimeInput.value = start;
+                                    endTimeInput.value = end;
+                                    hiddenStartTimeInput.value = start;
+                                    hiddenEndTimeInput.value = end;
+                                    updateGraph(start, end);
+                                },
+                            beforeResetZoom: function(chartContext, opts) {
+                                hiddenStartTimeInput = startTimeInitial;
+                                hiddenEndTimeInput = endTimeInitial;
+                                return {
+
+                                    xaxis: {
+                                        min: startTimeInput,
+                                        max: endTimeInput
+                                    }
+
+                                } 
+                            }
+                        }
                     },
                     stroke: {
                         width: 1,
-                        // colors: ['#fff']
                     },
                     series: series,
                     xaxis: {
@@ -198,21 +223,19 @@
                             text: 'Timestamp'
                         },
                         labels: {
-                            // rotate: -45, // Rotate labels for better visibility
                             datetimeUTC: false
                         },
-                        // grouped: true,
                     },
                     fill: {
                         opacity: 1
                     },
                     yaxis: {
                         title: {
-                            text: `Traffic (${yAxisUnit})` // Set Y-axis title dynamically
+                            text: `Traffic (${yAxisUnit})`
                         },
                         labels: {
                             formatter: function (value) {
-                                return value.toFixed(2); // Format to 2 decimal places
+                                return value.toFixed(2);
                             }
                         }
                     },
@@ -226,19 +249,18 @@
                         },
                         y: {
                             formatter: function (value) {
-                                return `${value.toFixed(2)} ${yAxisUnit}`; // Append the unit to tooltip
+                                return `${value.toFixed(2)} ${yAxisUnit}`;
                             }
                         }
                     },
                     dataLabels: {
-                        enabled: false // Disable values on bars
+                        enabled: false
                     },
                     plotOptions: {
                         bar: {
                             horizontal: false,
                             columnWidth: '100%',
                             endingShape: 'rounded',
-
                         }
                     }
                 };
