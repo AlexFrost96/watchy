@@ -39,8 +39,9 @@ watchy-tool
 3. Install MariaDB. You can follow the instructions from [How To Install MariaDB on Ubuntu 22.04](https://www.digitalocean.com/community/tutorials/how-to-install-mariadb-on-ubuntu-22-04). The installation of MariaDB is out of the scope of this document.
 
 4. Download the GeoLite2 databases:
-- GeoLite2-ASN.mmdb
-- GeoLite2-Country.mmdb
+- **GeoLite2-ASN.mmdb**
+- **GeoLite2-Country.mmdb**
+
 Place these files in the project directory.
 
 5. Run the installation script:
