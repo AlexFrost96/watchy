@@ -1,7 +1,5 @@
 *.csv
 *.mmdb
-devices.txt
 example_nfdump.txt
-nfcapd_csv.sh
 *__pycache__/
 *.log
