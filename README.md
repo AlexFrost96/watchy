@@ -60,7 +60,11 @@ Place these files in the project directory.
 
 1. Use the form on the main page to input your desired parameters for analyzing NetFlow data.
 
+![alt text](image.png)
+
 2. View the results on the output page, where you can also download the processed data.
+
+![alt text](image-1.png)
 
 ## Scripts
 - **move_nfcapd.sh**: Organizes NetFlow files into directories based on their creation date and generates database entries.
