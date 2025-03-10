@@ -23,6 +23,8 @@ watchy-tool
 ├── run_nfcapd.sh              # Script to start nfcapd for devices
 ├── watchy_modules.py          # Python module for data processing and graph generation
 ├── web_analyse.py             # Main Flask application file
+├── generate_DB.py             # Python module for DB operations
+├── install.sh                 # Installation script
 └── README.md                  # Project documentation
 ```
 
