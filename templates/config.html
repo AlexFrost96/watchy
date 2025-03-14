@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Watchy - Configuration{% endblock %}
+
+{% block content %}
+<table class="table table-borderless table-hover w-auto">
+    <thead>
+        <tr>
+            <th>Configuration</th>
+            <th>Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for config in list_config  %}
+        <tr>
+            <td>{{ config.config_name }}</td>
+            <td><span>{{ config.value }}</span></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

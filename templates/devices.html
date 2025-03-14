@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Watchy - Devices{% endblock %}
+
+{% block content %}
+<table class="table w-auto table-borderless table-hover">
+    <thead>
+        <tr>
+            <th>IP Address</th>
+            <th>Port</th>
+            <th>Memory Usage</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for device in devices %}
+        <tr data-bs-toggle="collapse" data-bs-target="#details-{{ loop.index }}" aria-expanded="false" aria-controls="details-{{ loop.index }}">
+            <td>{{ device.ip }}</td>
+            <td>{{ device.port }}</td>
+            <td>{{ device.memory_usage }}</td>
+        </tr>
+        <tr class="collapse" id="details-{{ loop.index }}">
+            <td colspan="3">
+                <div class="card card-body">
+                    <!-- Add additional information here -->
+                    <p>Additional information for {{ device.ip }}</p>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

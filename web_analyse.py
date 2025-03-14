@@ -11,20 +11,64 @@ app = Flask(__name__)
 app.secret_key = "HTi!-7c5CPr2P>(D#>£j'EW<YWyICX"
 
 
+def human_readable_size(size, decimal_places=2):
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size < 1024.0:
+            return f"{size:.{decimal_places}f} {unit}"
+        size /= 1024.0
+
+
+def get_directory_size(directory):
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            total_size += os.path.getsize(fp)
+    return total_size
+
+
 @app.route('/')
 def home():
     twelve_hours_ago = (datetime.now() - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     devices = []
-    with open("devices.txt", "r") as f:
-        for line in f:
-            ip, _ = line.strip().split(",")
-            devices.append(ip)
-
+    with open("config.txt", "r") as f:
+       devices = [line.strip().split(",")[0] for line in f if '=' not in line and line.strip()]
     graph_data, scale_unit = generate_combined_graph(
         devices, twelve_hours_ago, now)
-    return render_template('index.html', start_time=twelve_hours_ago, end_time=now, devices=devices, graph_data=graph_data, yaxis_unit=scale_unit)
+    return render_template('index.html', start_time=twelve_hours_ago, end_time=now, devices=devices, graph_data=graph_data, yaxis_unit=scale_unit, current_page='home')
+
+
+@app.route('/devices')
+def devices():
+    devices = []
+    base_dir = "/var/log/netflow/"
+    with open("config.txt", "r") as f:
+        for line in f:
+            if '=' in line or not line:
+                continue
+            ip, port = line.strip().split(",")
+            device_dir = os.path.join(base_dir, ip)
+            if os.path.exists(device_dir):
+                memory_usage = get_directory_size(device_dir)
+                memory_usage = human_readable_size(memory_usage)
+            else:
+                memory_usage = "0 B"
+            devices.append({"ip": ip, "port": port, "memory_usage": memory_usage})
+    return render_template('devices.html', devices=devices, current_page='devices')
+
+
+@app.route('/config')
+def config():
+    list_config = []
+    with open("config.txt", "r") as f:
+        #list_config = [line.strip().replace('=', ': ') for line in f if '=' in line and line.strip()]
+        for line in f:
+            if '=' in line:
+                config_name, value = line.strip().split("=")
+                list_config.append({"config_name": config_name, "value": value})
+    return render_template('config.html', list_config=list_config, current_page='config')
 
 
 @app.route('/update', methods=['POST'])
@@ -36,8 +80,8 @@ def update_graph():
     router_ips = request.form.getlist('router_ip')
 
     if not router_ips:
-        with open("devices.txt", "r") as f:
-            router_ips = [line.strip().split(",")[0] for line in f]
+        with open("config.txt", "r") as f:
+            router_ips = [line.strip().split(",")[0] for line in f if '=' not in line and line.strip()]
 
     data = fetch_data_from_db(router_ips, start_time, end_time)  # Fetch data
 
@@ -112,7 +156,7 @@ def run_script():
         print(f"Command failed: {e}")
         html_table = f"<pre>Error executing command: {e}</pre>"
 
-    return render_template('output.html', table=html_table, command=cmd, start_time=start_time, end_time=end_time)
+    return render_template('output.html', table=html_table, command=cmd, start_time=start_time, end_time=end_time, current_page='output')
 
 
 if __name__ == '__main__':

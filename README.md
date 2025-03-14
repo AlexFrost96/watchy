@@ -69,7 +69,7 @@ Place these files in the project directory.
 ## Scripts
 - **move_nfcapd.sh**: Organizes NetFlow files into directories based on their creation date and generates database entries.
 - **delete_empty_flows.sh**: Cleans up empty NetFlow files to maintain a tidy log directory.
-- **run_nfcapd.sh**: Initializes the nfcapd process for each device listed in `devices.txt`.
+- **run_nfcapd.sh**: Initializes the nfcapd process for each device listed in `config.txt`.
 - **generate_DB.py**: Processes NetFlow files and inserts the extracted data into a MariaDB database.
 
 ## Contributing
